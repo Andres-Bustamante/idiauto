@@ -1,6 +1,7 @@
 venv/
 build/
 dist/
+test/
 __pycache__/
 *.pyc
 *.pyo

@@ -183,28 +183,55 @@ def _crearNuevaActividad(page):
         print("Opción inválida.")
 
 
+def _asegurarActividades(page):
+    """Si no estamos en la vista de actividades, navega hasta ella."""
+    try:
+        if page.locator("#panelTareas").count() == 0:
+            irAActividades(page)
+            page.wait_for_timeout(500)
+    except Exception:
+        pass
+
+
 def suspenderActividad(page, unidades="0", comentarios=""):
+    _asegurarActividades(page)
+    page.locator("#btnSuspender").wait_for(
+        state="visible", timeout=15000)
     page.locator("#btnSuspender").click(force=True)
-    page.locator("#unidadesSuspender").wait_for(state="visible", timeout=10000)
+    page.locator("#unidadesSuspender").wait_for(
+        state="visible", timeout=15000)
+    page.wait_for_timeout(300)
     page.locator("#unidadesSuspender").fill(unidades or "0")
     page.locator("#comentariosSuspender").fill(comentarios)
     page.locator("#suspenderActividad").click(force=True)
+    page.wait_for_timeout(500)
 
 
 def finalizarActividad(page, unidades="0", comentarios=""):
+    _asegurarActividades(page)
+    page.locator("#btnFin").wait_for(state="visible", timeout=15000)
     page.locator("#btnFin").click(force=True)
-    page.locator("#unidadesFinalizar").wait_for(state="visible", timeout=10000)
+    page.locator("#unidadesFinalizar").wait_for(
+        state="visible", timeout=15000)
+    page.wait_for_timeout(300)
     page.locator("#unidadesFinalizar").fill(unidades or "0")
     page.locator("#comentariosFinalizar").fill(comentarios)
     page.locator("#finalizarActividad").click(force=True)
+    page.wait_for_timeout(500)
 
 
 def interrumpirActividad(page, tipoValor, descripcion=""):
+    _asegurarActividades(page)
+    page.locator("#btnInterrupcion").wait_for(
+        state="visible", timeout=15000)
     page.locator("#btnInterrupcion").click(force=True)
-    page.locator("#tipoInterrupcion").wait_for(state="visible", timeout=10000)
+    page.locator("#tipoInterrupcion").wait_for(
+        state="visible", timeout=15000)
+    page.wait_for_timeout(300)
     page.locator("#tipoInterrupcion").select_option(tipoValor)
     page.locator("#descripcionInterrupcion").fill(descripcion)
     page.locator("#agregarInterrupcion").click(force=True)
+    page.wait_for_timeout(500)
 
 
 def crearActividad(page, nombre, tipoValor):
@@ -220,13 +247,37 @@ def hayActividadActiva(page):
 
 
 def obtenerActividadActiva(page):
-    """Devuelve el nombre de la actividad activa o None."""
-    if not hayActividadActiva(page):
+    """Devuelve el nombre de la actividad activa o None.
+    Busca en la tabla la fila cuya columna de estado dice 'En ejecución'.
+    """
+    try:
+        nombre = page.evaluate(
+            """() => {
+                const tds = document.querySelectorAll('td');
+                for (const td of tds) {
+                    const t = (td.innerText || '').trim();
+                    if (!t.includes('En ejecución')) continue;
+                    const row = td.closest('tr');
+                    if (!row) continue;
+                    const cells = Array.from(row.querySelectorAll('td'))
+                        .map(c => (c.innerText || '').trim())
+                        .filter(x => x && !x.includes('En ejecución'));
+                    if (!cells.length) return null;
+                    // El título suele ser la celda con más texto
+                    // sin ser solo un número/hora.
+                    let best = '';
+                    for (const c of cells) {
+                        if (/^\\d/.test(c)) continue;
+                        if (c.length > best.length) best = c;
+                    }
+                    return best || cells[0];
+                }
+                return null;
+            }"""
+        )
+        return nombre
+    except Exception:
         return None
-    lista = _listarActividadesPanel(page)
-    if lista:
-        return lista[0].get("titulo") or None
-    return None
 
 
 def dailyActividad(page, tipoDailyValor="29"):
